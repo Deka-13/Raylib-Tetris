@@ -3,7 +3,7 @@ CXXFLAGS = -Wall -Wextra -std=c++17 -g
 LFLAGS = -lraylib
 
 TARGET = tetris
-SRCS = main.cpp
+SRCS = main.cpp canvas.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 all: $(TARGET)
