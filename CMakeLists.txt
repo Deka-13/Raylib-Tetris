@@ -12,6 +12,7 @@ find_path(RAYLIB_INCLUDE_DIR NAMES raylib.h REQUIRED)
 add_executable(tetris
     main.cpp
     canvas.cpp
+    tetris_logic.cpp
 )
 
 target_compile_options(tetris PRIVATE -Wall -Wextra -g)
