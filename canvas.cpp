@@ -1,6 +1,6 @@
 #include "canvas.hpp"
 
-void DrawCanvas(Canvas canvas) {
+void DrawCanvas(const Canvas& canvas) {
     Rectangle canvas_screen = { canvas.pos_x, canvas.pos_y, canvas.width, canvas.height };
     DrawRectangleRec(canvas_screen, canvas.color);
 

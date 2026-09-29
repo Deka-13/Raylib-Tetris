@@ -18,7 +18,7 @@ struct Canvas {
 };
 
 // Canvas drawing function
-void DrawCanvas(Canvas canvas);
+void DrawCanvas(const Canvas& canvas);
 
 // Position Offset Helper Functions
 Rectangle offset_pos(Canvas c, Rectangle r);

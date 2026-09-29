@@ -10,7 +10,8 @@
 // Tetris Grid Parameters
 #define GRID_WIDTH 10
 #define GRID_HEIGHT 20
-#define GRID_SIZE (GRID_WIDTH * (GRID_HEIGHT + 1))
+#define GRID_ROWS (GRID_HEIGHT + 1) 
+#define GRID_SIZE (GRID_WIDTH * GRID_ROWS)
 
 #define BLOCK_SIZE (TSCREEN_HEIGHT / GRID_HEIGHT)
 #define BLOCK_COLOR WHITE
@@ -24,5 +25,9 @@
 
 #define T_BORDER_COLOR WHITE
 #define T_BORDER_THICK 6
+
+// Game Parameters
+#define GAME_FPS 60
+#define INITIAL_SPEED (GAME_FPS / 2)
 
 #endif // SCREEN_CONFIG_H
