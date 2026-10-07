@@ -1,27 +1,41 @@
 cmake_minimum_required(VERSION 3.12)
+
 project(tetris LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Find Raylib library (-lraylib) and header (<raylib.h>)
+# Find Raylib library and header
 find_library(RAYLIB_LIBRARY NAMES raylib REQUIRED)
 find_path(RAYLIB_INCLUDE_DIR NAMES raylib.h REQUIRED)
 
-# Executable target and source files
+# Executable
 add_executable(tetris
-    main.cpp
-    canvas.cpp
-    tetris_logic.cpp
+    src/main.cpp
+    src/canvas.cpp
+    src/tetris.cpp
 )
 
-target_compile_options(tetris PRIVATE -Wall -Wextra -g)
+# Compiler warnings and debug information
+target_compile_options(tetris PRIVATE
+    -Wall
+    -Wextra
+    -g
+)
 
-# Include Raylib header path and link the library binary
-target_include_directories(tetris PRIVATE ${RAYLIB_INCLUDE_DIR})
-target_link_libraries(tetris PRIVATE ${RAYLIB_LIBRARY})
+# Project headers
+target_include_directories(tetris PRIVATE
+    include
+    config
+    ${RAYLIB_INCLUDE_DIR}
+)
 
-# Create 'make run' target
+# Raylib
+target_link_libraries(tetris PRIVATE
+    ${RAYLIB_LIBRARY}
+)
+
+# 'make run' / 'cmake --build build --target run'
 add_custom_target(run
     COMMAND tetris
     DEPENDS tetris
