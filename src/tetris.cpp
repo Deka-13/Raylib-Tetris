@@ -4,20 +4,79 @@
 // TetrisGrid Class Functions
 void TetrisGrid::Rotate() {
     if (!is_tetromino) return;
+
+    // 1. Clear current falling cells from the grid
     for (auto& cell : grid) {
         if (cell.state_cell == Cell::State::Falling) {
-            cell.state_cell = Cell::State::Empty; // Fixed: used '=' instead of '=='
+            cell.state_cell = Cell::State::Empty;
         }
     }
 
+    // 2. Square pieces (O-tetromino) do not rotate
+    bool is_square = true;
+    const auto square_offsets = GetOffsets(TetrominoType::O);
+    for (std::size_t i = 0; i < offsets.size(); ++i) {
+        if (offsets[i].x != square_offsets[i].x || offsets[i].y != square_offsets[i].y) {
+            is_square = false;
+            break;
+        }
+    }
+    if (is_square) {
+        SetTetromino();
+        return;
+    }
+
+    // 3. Backup old offsets and pivot
+    auto old_offsets = offsets;
+    Point old_pivot = pivot;
+
+    // 4. Apply standard rotation transformation (90 degrees clockwise: (x, y) -> (-y, x))
     for (auto& offset : offsets) {
         int x = offset.x;
         int y = offset.y;
-
         offset.x = -y;
         offset.y = x;
     }
 
+    // 5. Define potential kick adjustments (test normal first, then nudge left, right, or up)
+    constexpr std::array<Point, 4> kick_tests = {{
+        {0, 0},   // No shift (standard rotation check)
+        {1, 0},   // Shift right
+        {-1, 0},  // Shift left
+        {0, -1}   // Shift up (crucial for floor rotations)
+    }};
+
+    bool successful_rotation = false;
+
+    for (const auto& kick : kick_tests) {
+        pivot.x = old_pivot.x + kick.x;
+        pivot.y = old_pivot.y + kick.y;
+
+        bool collision = false;
+        for (const auto& offset : offsets) {
+            Point cell_pos = GetOffsetCoordinates(offset.x, offset.y);
+            auto index = GetIndex(cell_pos.x, cell_pos.y);
+
+            // Check out of bounds or colliding with a locked block
+            if (!index.has_value() || grid[static_cast<std::size_t>(index.value())].state_cell == Cell::State::Locked) {
+                collision = true;
+                break;
+            }
+        }
+
+        if (!collision) {
+            successful_rotation = true;
+            break; // Found a valid spot, keep this kick
+        }
+    }
+
+    // 6. If all kicks failed, completely revert offsets and pivot
+    if (!successful_rotation) {
+        offsets = old_offsets;
+        pivot = old_pivot;
+    }
+
+    // 7. Redraw the tetromino on the grid
     SetTetromino();
 }
 
@@ -90,7 +149,7 @@ void TetrisGrid::DoFallStep() {
         return;
     }
 
-    // Phase 1: Check if any falling block will collide with the floor or a locked block below it.
+    // Check if any falling block will collide with the floor or a locked block below it.
     bool will_collide = false;
     for (std::size_t i = grid.size(); i > 0; --i) {
         std::size_t t = i - 1;
@@ -103,7 +162,7 @@ void TetrisGrid::DoFallStep() {
         }
     }
 
-    // Phase 2: Act based on collision status
+    // Act based on collision status
     if (will_collide) {
         // Lock all falling blocks simultaneously so they stop immediately together
         for (auto& cell : grid) {
@@ -123,6 +182,8 @@ void TetrisGrid::DoFallStep() {
                 grid[t + GRID_WIDTH].state_cell = Cell::State::Falling;
             }
         }
+        ++pivot.y;
+        SetTetromino();
     }
 }
 

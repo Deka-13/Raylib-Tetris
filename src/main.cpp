@@ -31,6 +31,18 @@ int main(void){
     int speed = INITIAL_SPEED;
 
     while (!WindowShouldClose()){
+        // Handle input
+        if (IsKeyPressed(KEY_R) && !Tetris.IsGameOver()) {
+            Tetris.Rotate();
+        }
+
+        // Update game state
+        if (time_count == speed && !Tetris.IsGameOver()) {
+            Tetris.DoFallStep();
+            time_count = 1;
+        }
+
+        // Render frame
         BeginDrawing();
         ClearBackground(WINDOW_COLOR);
         
@@ -41,10 +53,6 @@ int main(void){
             TETRIS_BORDER_COLOR  // Color border_color
         };
         DrawCanvas(Tetris_Screen);
-        if (time_count == speed && !Tetris.IsGameOver()) {
-            Tetris.DoFallStep();
-            time_count = 1;
-        }
         DrawBlocksOnCanvas(Tetris_Screen, Tetris);
 
         EndDrawing();
@@ -53,7 +61,6 @@ int main(void){
 
     CloseWindow();
     return 0;
-
 }
 
 
