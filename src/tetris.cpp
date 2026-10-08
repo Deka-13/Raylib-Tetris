@@ -3,14 +3,8 @@
 
 // TetrisGrid Class Functions
 void TetrisGrid::Rotate() {
+    // 1. Check if there is tetromino on a grid
     if (!is_tetromino) return;
-
-    // 1. Clear current falling cells from the grid
-    for (auto& cell : grid) {
-        if (cell.state_cell == Cell::State::Falling) {
-            cell.state_cell = Cell::State::Empty;
-        }
-    }
 
     // 2. Square pieces (O-tetromino) do not rotate
     bool is_square = true;
@@ -22,16 +16,15 @@ void TetrisGrid::Rotate() {
         }
     }
     if (is_square) {
-        SetTetromino();
-        return;
+        return; // Square doesn't change, no need to redraw or clear
     }
 
-    // 3. Backup old offsets and pivot
-    auto old_offsets = offsets;
+    // 3. Backup old pivot
     Point old_pivot = pivot;
 
     // 4. Apply standard rotation transformation (90 degrees clockwise: (x, y) -> (-y, x))
-    for (auto& offset : offsets) {
+    auto temp_offsets = offsets;
+    for (auto& offset : temp_offsets) {
         int x = offset.x;
         int y = offset.y;
         offset.x = -y;
@@ -47,14 +40,15 @@ void TetrisGrid::Rotate() {
     }};
 
     bool successful_rotation = false;
+    Point final_pivot = old_pivot;
 
     for (const auto& kick : kick_tests) {
-        pivot.x = old_pivot.x + kick.x;
-        pivot.y = old_pivot.y + kick.y;
+        Point test_pivot = { old_pivot.x + kick.x, old_pivot.y + kick.y };
 
         bool collision = false;
-        for (const auto& offset : offsets) {
-            Point cell_pos = GetOffsetCoordinates(offset.x, offset.y);
+        for (const auto& offset : temp_offsets) {
+            // Compute coordinates using the temporary pivot and rotated offsets
+            Point cell_pos = { test_pivot.x + offset.x, test_pivot.y + offset.y };
             auto index = GetIndex(cell_pos.x, cell_pos.y);
 
             // Check out of bounds or colliding with a locked block
@@ -66,24 +60,32 @@ void TetrisGrid::Rotate() {
 
         if (!collision) {
             successful_rotation = true;
-            break; // Found a valid spot, keep this kick
+            final_pivot = test_pivot;
+            break;
         }
     }
 
-    // 6. If all kicks failed, completely revert offsets and pivot
+    // 6. If all kicks failed, rotation is invalid. Do nothing and exit.
     if (!successful_rotation) {
-        offsets = old_offsets;
-        pivot = old_pivot;
+        return;
     }
 
-    // 7. Redraw the tetromino on the grid
+    // 7. ONLY NOW that rotation is proven safe, clear old falling positions from the grid
+    for (auto& cell : grid) {
+        if (cell.state_cell == Cell::State::Falling) {
+            cell.state_cell = Cell::State::Empty;
+        }
+    }
+
+    // 8. Apply the successful rotation state and redraw
+    offsets = temp_offsets;
+    pivot = final_pivot;
     SetTetromino();
 }
 
 void TetrisGrid::SetTetromino(){    
     for (auto& offset : offsets) {
         Point cell_pos = GetOffsetCoordinates(offset.x, offset.y);
-        // Fixed: Unwrapped std::optional<int> using .value() and cast to std::size_t
         auto index = GetIndex(cell_pos.x, cell_pos.y);
         if (index.has_value()) {
             GetCell(static_cast<std::size_t>(index.value())).state_cell = Cell::State::Falling;
@@ -107,6 +109,8 @@ std::array<Point, 4> TetrisGrid::GetOffsets(TetrominoType type) {
 
 // Random Tetromino Creation Logic Function
 void TetrisGrid::SetRandomTetromino() {
+    if (IsGameOver()) return;
+
     static std::array<TetrominoType, 7> bag = {
         TetrominoType::I,
         TetrominoType::O,
@@ -188,18 +192,96 @@ void TetrisGrid::DoFallStep() {
 }
 
 void TetrisGrid::CheckIfFullRow() {
-    for (std::size_t row = 0; row < grid.size(); row += GRID_WIDTH) { // Fixed: increment loop properly with '+= GRID_WIDTH'
+    for (std::size_t row = 0; row < grid.size(); row += GRID_WIDTH) {
         bool is_full_row = true;
         for (std::size_t t = 0; t < GRID_WIDTH; ++t) {
-            if (grid[row + t].state_cell == Cell::State::Empty) { // Fixed: use 'row + t' instead of undefined 'i + t'
+            if (grid[row + t].state_cell == Cell::State::Empty) {
                 is_full_row = false;
+                break;
             }
         }
+
         if (is_full_row) {
+            // 1. Clear the full row
             for (std::size_t t = 0; t < GRID_WIDTH; ++t) {
-                grid[row + t].state_cell = Cell::State::Empty; // Fixed: clear specific row slots
+                grid[row + t].state_cell = Cell::State::Empty;
                 score = score + GRID_WIDTH * 10;
+            }
+
+            // 2. Shift all rows above this cleared row down by one row width
+            // Must loop upwards from the cleared row toward the top of the grid (index 0)
+            for (std::ptrdiff_t current_row = static_cast<std::ptrdiff_t>(row); current_row > 0; current_row -= GRID_WIDTH) {
+                for (std::size_t t = 0; t < GRID_WIDTH; ++t) {
+                    std::size_t dest_idx = static_cast<std::size_t>(current_row) + t;
+                    std::size_t src_idx = dest_idx - GRID_WIDTH;
+                    
+                    // Copy the state from the row above
+                    grid[dest_idx].state_cell = grid[src_idx].state_cell;
+                }
+            }
+
+            // 3. Clear the very top row since nothing is above it to shift down
+            for (std::size_t t = 0; t < GRID_WIDTH; ++t) {
+                grid[t].state_cell = Cell::State::Empty;
             }
         }
     }
+}
+
+void TetrisGrid::MovePivot(int dx) {
+    if (!is_tetromino) return;
+
+    // 2. Backup old pivot
+    Point old_pivot = pivot;
+
+    // 3. Tentatively move pivot by dx (-1 for left, 1 for right)
+    pivot.x += dx;
+
+    // 4. Check for collisions with walls or locked blocks BEFORE clearing the grid
+    bool collision = false;
+    for (const auto& offset : offsets) {
+        Point cell_pos = GetOffsetCoordinates(offset.x, offset.y);
+        auto index = GetIndex(cell_pos.x, cell_pos.y);
+
+        if (!index.has_value() || grid[static_cast<std::size_t>(index.value())].state_cell == Cell::State::Locked) {
+            collision = true;
+            break;
+        }
+    }
+
+    // 5. If collision occurred, revert the pivot change immediately and exit
+    if (collision) {
+        pivot = old_pivot;
+        return; 
+    }
+
+    // 6. Only now that the move is verified safe, clear old falling positions
+    for (auto& cell : grid) {
+        if (cell.state_cell == Cell::State::Falling) {
+            cell.state_cell = Cell::State::Empty;
+        }
+    }
+
+    // 7. Redraw the tetromino at its new valid position
+    SetTetromino();
+}
+
+void TetrisGrid::MovePivotLeft() {
+    MovePivot(-1);
+}
+
+void TetrisGrid::MovePivotRight() {
+    MovePivot(1);
+}
+
+bool TetrisGrid::IsGameOver() {
+    // Check if any locked blocks exist in the top row (or the spawn row area)
+    // Here we check the hidden and the top row (from index 0 up to GRID_WIDTH * 2)
+    // The function will be updated later
+    for (std::size_t i = 0; i < GRID_WIDTH * 2; ++i) {
+        if (grid[i].state_cell == Cell::State::Locked) {
+            return true;
+        }
+    }
+    return false;
 }

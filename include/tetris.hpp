@@ -27,7 +27,6 @@ private:
     std::array<Point, 4> offsets;
 
     int score = 0;
-    bool game_over = false;
     bool is_tetromino = false;
 
     static std::array<Point, 4> GetOffsets(TetrominoType type);
@@ -36,6 +35,8 @@ private:
 
     void CheckIfFullRow();
 
+    void MovePivot(int dx);
+
 public:
     TetrisGrid() { SetRandomTetromino(); }
 
@@ -43,9 +44,7 @@ public:
         return grid[index];
     }
 
-    bool IsGameOver() const {
-        return game_over;
-    }    
+    bool IsGameOver();
 
     Point GetOffsetCoordinates(int x, int y) const {
         return { pivot.x + x, pivot.y + y };
@@ -62,9 +61,19 @@ public:
         return y * GRID_WIDTH + x;
     }
 
+    int GetScore() const {
+        return score;
+    }
+
+    bool IsTetromino() const {
+        return is_tetromino;
+    }
+
     void SetRandomTetromino();
 
     void Rotate();
+    void MovePivotLeft();
+    void MovePivotRight();
 
     // Function for blocks to fall to level below
     void DoFallStep();
